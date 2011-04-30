@@ -10,10 +10,28 @@
 
 
 @interface DetailViewController : UIViewController {
-    IBOutlet UILabel *lblText;
-    NSString *selectedCountry;
+    // GUI elements
+    IBOutlet UILabel                    *lblText;
+    IBOutlet UILabel                    *lblLoad;
+    IBOutlet UILabel                    *lblPopulation;
+    IBOutlet UILabel                    *lblCapital;
+    IBOutlet UIActivityIndicatorView    *activityIndicator;
+    NSString                            *selectedCountry;
+    // Web service elements
+    NSMutableData   *serviceData;
+    NSMutableString *serviceResults;
+    NSURLConnection *serviceConnection;
+    //XML parser elements
+    NSXMLParser *xmlParser;
+    BOOL elementFound;
 }
 
-@property (nonatomic, retain) NSString *selectedCountry;
+@property (nonatomic, retain) NSString                  *selectedCountry;
+@property (nonatomic, retain) UIActivityIndicatorView   *activityIndicator;
+@property (nonatomic, retain) UILabel                   *lblLoad;
+@property (nonatomic, retain) UILabel                   *lblPopulation;
+@property (nonatomic, retain) UILabel                   *lblCapital;
+
+- (IBAction)buttonClicked:(id)sender;
 
 @end
