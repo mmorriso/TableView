@@ -16,6 +16,8 @@
 @synthesize lblPopulation;
 @synthesize lblCapital;
 
+NSString * const CONF_SERVICE_URI = @"http://www.ezzylearning.com/services/CountryInformationService.asmx";
+
 - (id)initWithNibName:(NSString *)nibNameOrNil bundle:(NSBundle *)nibBundleOrNil
 {
     self = [super initWithNibName:nibNameOrNil bundle:nibBundleOrNil];
@@ -26,33 +28,48 @@
 }
 
 - (IBAction)buttonClicked:(id)sender {
-    NSString *postString = 
-        [NSString stringWithFormat:@"countryName=%@", lblText.text];
-    // DEBUG log the proposed post string to console
-    //NSLog(postString);
     
-    NSURL *url = [NSURL URLWithString: 
-                  @"http://www.ezzylearning.com/services/CountryInformationService.asmx/GetPopulationByCountry"];
-    /*NSURL *url = [NSURL URLWithString: 
-                  @"http://www.ezzylearning.com/services/CountryInformationService.asmx/GetCapitalByCountry"];*/
-    NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:url];
-    NSString *msgLength = 
-        [NSString stringWithFormat:@"%d", [postString length]];
+    [self serviceRequest:@"GetPopulationByCountry": lblText.text];
     
-    [req addValue:@"application/x-www-form-urlencoded" forHTTPHeaderField:@"Content-Type"];
-    [req addValue:msgLength forHTTPHeaderField:@"Content-Length"];
-    [req setHTTPMethod:@"POST"];
-    [req setHTTPBody: [postString 
-                       dataUsingEncoding:NSUTF8StringEncoding]];
+    [self serviceRequest:@"GetCapitalByCountry": lblText.text];
     
     [activityIndicator setHidden:FALSE];
     [lblLoad           setHidden:FALSE];
     [activityIndicator startAnimating];
     
+}
+
+-(void) serviceRequest:(NSString *) serviceURI:(NSString *) serviceArgument {
+
+    NSString *postString = [NSString stringWithFormat:@""
+                            "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
+                            "<soap12:Envelope xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" "
+                            "xmlns:soap12=\"http://www.w3.org/2003/05/soap-envelope\">"
+                            "<soap12:Body>"
+                            "<%@ xmlns=\"%@\">"
+                            "<countryName>%@</countryName>"
+                            "</%@>"
+                            "</soap12:Body>"
+                            "</soap12:Envelope>", serviceURI, CONF_SERVICE_URI, serviceArgument, serviceURI];
+    
+    NSURL *url = [NSURL URLWithString: CONF_SERVICE_URI];
+    NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:url];
+    
+    //define message headers
+    NSString *msgAction = [NSString stringWithFormat:@"%@/%@", CONF_SERVICE_URI, serviceURI];
+    NSString *msgLength = [NSString stringWithFormat:@"%d", [postString length]];
+    [req addValue:@"text/xml; charset=utf-8" forHTTPHeaderField:@"Content-Type"];
+    [req addValue:msgAction forHTTPHeaderField:@"SOAPAction"];
+    [req addValue:msgLength forHTTPHeaderField:@"Content-Length"];
+    
+    //define message method and body
+    [req setHTTPMethod:@"POST"];
+    [req setHTTPBody: [postString dataUsingEncoding:NSUTF8StringEncoding]];
+     
     serviceConnection = [[NSURLConnection alloc] initWithRequest:req delegate:self];
     if (serviceConnection) {
         serviceData = [[NSMutableData data] retain];
-    }    
+    }
 }
 
 -(void) connection:(NSURLConnection *) connection 
@@ -71,25 +88,13 @@ didReceiveResponse:(NSURLResponse *) response {
     [connection release];
 }
 
--(void) connectionDidFinishLoading:(NSURLConnection *) connection {
-    //NSLog(@"DONE. Received Bytes: %d", [serviceData length]);
-    NSString *theXML = [[NSString alloc] 
-                        initWithBytes: [serviceData mutableBytes] 
-                        length:[serviceData length] 
-                        encoding:NSUTF8StringEncoding];
-    // DEBUG log the xml response to console
-    //NSLog(theXML);
-    [theXML release];    
-    [activityIndicator stopAnimating];
-    [activityIndicator setHidden:TRUE];
-    [lblLoad           setHidden:TRUE];
-    
+-(void) connectionDidFinishLoading:(NSURLConnection *) connection {   
     if (xmlParser)
     {
         [xmlParser release];
     }
         
-    xmlParser = [[NSXMLParser alloc] initWithData: serviceData];
+    xmlParser = [[[NSXMLParser alloc] initWithData: serviceData] retain];
     [xmlParser setDelegate: self];
     [xmlParser setShouldResolveExternalEntities: YES];
     [xmlParser setShouldProcessNamespaces: YES];
@@ -97,6 +102,11 @@ didReceiveResponse:(NSURLResponse *) response {
     
     [connection release];
     [serviceData release];
+    
+    [activityIndicator stopAnimating];
+    [activityIndicator setHidden:TRUE];
+    [lblLoad           setHidden:TRUE];
+
 }
 
 -(void) parser:(NSXMLParser *) parser 
@@ -105,8 +115,7 @@ didStartElement:(NSString *) elementName
  qualifiedName:(NSString *) qName
     attributes:(NSDictionary *) attributeDict {
     
-    // TODO extend to other tags used by web service
-    if( [elementName isEqualToString:@"string"])
+    if( [elementName isEqualToString:@"GetCapitalByCountryResult"] || [elementName isEqualToString:@"GetPopulationByCountryResult"])
     {
         if (!serviceResults)
         {
@@ -129,40 +138,38 @@ didEndElement:(NSString *)elementName
  namespaceURI:(NSString *)namespaceURI 
 qualifiedName:(NSString *)qName
 {
-    //NSString *resource = [namespaceURI lastPathComponent];
-    //NSLog(namespaceURI);
-    //NSLog(qName);
-    //NSLog(resource);
-    
-    // TODO extend to other tags used by web service
-    if ([elementName isEqualToString:@"string"])
+    if ([elementName isEqualToString:@"GetCapitalByCountryResult"])
     {
-        //NSLog(serviceResults);        
+        lblCapital.text = serviceResults;
+        [serviceResults setString:@""];
+        elementFound = FALSE; 
+    } 
+    else if ([elementName isEqualToString:@"GetPopulationByCountryResult"])
+    {
         lblPopulation.text = serviceResults;
         [serviceResults setString:@""];
         elementFound = FALSE; 
     }
+
 }
 
 - (void)dealloc
 {
     [activityIndicator release];
-    [xmlParser release];
-    [serviceResults release];    
-    [lblText release];
-    [lblLoad release];
-    [lblPopulation release];
-    [lblCapital release];
-    [selectedCountry release];
+    [xmlParser         release];
+    [serviceResults    release];
+    [lblText           release];
+    [lblLoad           release];
+    [lblPopulation     release];
+    [lblCapital        release];
+    [selectedCountry   release];
+    [CONF_SERVICE_URI  release];
     [super dealloc];
 }
 
 - (void)didReceiveMemoryWarning
 {
-    // Releases the view if it doesn't have a superview.
     [super didReceiveMemoryWarning];
-    
-    // Release any cached data, images, etc that aren't in use.
 }
 
 #pragma mark - View lifecycle
@@ -171,27 +178,21 @@ qualifiedName:(NSString *)qName
 {
     [super viewDidLoad];
     
-    // Display the selected country
     lblText.text = selectedCountry;
     
-    // Hide the activity indicator
     activityIndicator.hidden = TRUE;
     lblLoad.hidden           = TRUE;
     
-    // Set the title of the navigation bar
     self.navigationItem.title = @"Selected Country";
 }
 
 - (void)viewDidUnload
 {
     [super viewDidUnload];
-    // Release any retained subviews of the main view.
-    // e.g. self.myOutlet = nil;
 }
 
 - (BOOL)shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)interfaceOrientation
 {
-    // Return YES for supported orientations
     return (interfaceOrientation == UIInterfaceOrientationPortrait);
 }
 

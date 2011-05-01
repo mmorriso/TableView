@@ -8,8 +8,9 @@
 
 #import <UIKit/UIKit.h>
 
+@protocol NSXMLParserDelegate;
 
-@interface DetailViewController : UIViewController {
+@interface DetailViewController: UIViewController <NSXMLParserDelegate> {
     // GUI elements
     IBOutlet UILabel                    *lblText;
     IBOutlet UILabel                    *lblLoad;
@@ -32,6 +33,9 @@
 @property (nonatomic, retain) UILabel                   *lblPopulation;
 @property (nonatomic, retain) UILabel                   *lblCapital;
 
+extern NSString * const CONF_SERVICE_URI;
+
 - (IBAction)buttonClicked:(id)sender;
+- (void)serviceRequest:(NSString *) serviceURI:(NSString *) serviceArgument;
 
 @end
